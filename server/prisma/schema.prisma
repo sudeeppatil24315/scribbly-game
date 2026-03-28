@@ -1,0 +1,181 @@
+// Prisma schema for Scribbly game
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String   @id @default(uuid())
+  username       String   @unique @db.VarChar(32)
+  email          String?  @unique @db.VarChar(255)
+  passwordHash   String?  @map("password_hash")
+  oauthProvider  String?  @map("oauth_provider") @db.VarChar(32)
+  oauthId        String?  @map("oauth_id")
+  avatarUrl      String?  @map("avatar_url")
+  xp             Int      @default(0)
+  level          Int      @default(1)
+  isBanned       Boolean  @default(false) @map("is_banned")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  stats          PlayerStats?
+  cosmetics      UserCosmetic[]
+  wordPacks      WordPack[]
+  gamePlayers    GamePlayer[]
+  reportsCreated Report[]       @relation("ReporterReports")
+  reportsReceived Report[]      @relation("ReportedReports")
+  refreshTokens  RefreshToken[]
+  wordPackRatings WordPackRating[]
+
+  @@map("users")
+}
+
+model PlayerStats {
+  id             String @id @default(uuid())
+  userId         String @unique @map("user_id")
+  gamesPlayed    Int    @default(0) @map("games_played")
+  gamesWon       Int    @default(0) @map("games_won")
+  totalScore     BigInt @default(0) @map("total_score")
+  correctGuesses Int    @default(0) @map("correct_guesses")
+  wordsDrawn     Int    @default(0) @map("words_drawn")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("player_stats")
+}
+
+model Cosmetic {
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(64)
+  type        String   @db.VarChar(32)
+  unlockLevel Int      @map("unlock_level")
+  assetUrl    String   @map("asset_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  userCosmetics UserCosmetic[]
+
+  @@map("cosmetics")
+}
+
+model UserCosmetic {
+  userId      String   @map("user_id")
+  cosmeticId  String   @map("cosmetic_id")
+  equipped    Boolean  @default(false)
+  unlockedAt  DateTime @default(now()) @map("unlocked_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cosmetic Cosmetic @relation(fields: [cosmeticId], references: [id])
+
+  @@id([userId, cosmeticId])
+  @@map("user_cosmetics")
+}
+
+model WordPack {
+  id          String   @id @default(uuid())
+  creatorId   String?  @map("creator_id")
+  name        String   @db.VarChar(128)
+  description String?
+  category    String?  @db.VarChar(64)
+  language    String   @default("en") @db.VarChar(16)
+  difficulty  String   @default("medium") @db.VarChar(16)
+  isPublic    Boolean  @default(true) @map("is_public")
+  isCurated   Boolean  @default(false) @map("is_curated")
+  playCount   Int      @default(0) @map("play_count")
+  ratingSum   Int      @default(0) @map("rating_sum")
+  ratingCount Int      @default(0) @map("rating_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  creator      User?            @relation(fields: [creatorId], references: [id], onDelete: SetNull)
+  words        Word[]
+  gameSessions GameSession[]
+  ratings      WordPackRating[]
+
+  @@map("word_packs")
+}
+
+model Word {
+  id         String  @id @default(uuid())
+  packId     String  @map("pack_id")
+  word       String  @db.VarChar(128)
+  difficulty String? @db.VarChar(16)
+
+  pack WordPack @relation(fields: [packId], references: [id], onDelete: Cascade)
+
+  @@map("words")
+}
+
+model WordPackRating {
+  userId   String   @map("user_id")
+  packId   String   @map("pack_id")
+  rating   Int      @db.SmallInt
+  ratedAt  DateTime @default(now()) @map("rated_at")
+
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pack WordPack @relation(fields: [packId], references: [id], onDelete: Cascade)
+
+  @@id([userId, packId])
+  @@map("word_pack_ratings")
+}
+
+model GameSession {
+  id         String    @id @default(uuid())
+  roomId     String    @map("room_id") @db.VarChar(16)
+  mode       String    @default("classic") @db.VarChar(32)
+  rounds     Int?      @db.SmallInt
+  startedAt  DateTime? @map("started_at")
+  endedAt    DateTime? @map("ended_at")
+  wordPackId String?   @map("word_pack_id")
+
+  wordPack WordPack?    @relation(fields: [wordPackId], references: [id], onDelete: SetNull)
+  players  GamePlayer[]
+
+  @@map("game_sessions")
+}
+
+model GamePlayer {
+  id         String  @id @default(uuid())
+  sessionId  String  @map("session_id")
+  userId     String? @map("user_id")
+  guestName  String? @map("guest_name") @db.VarChar(32)
+  finalScore Int     @default(0) @map("final_score")
+  finalRank  Int?    @map("final_rank") @db.SmallInt
+  xpEarned   Int     @default(0) @map("xp_earned")
+
+  session GameSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("game_players")
+}
+
+model Report {
+  id         String   @id @default(uuid())
+  reporterId String?  @map("reporter_id")
+  reportedId String   @map("reported_id")
+  reason     String?  @db.VarChar(128)
+  details    String?
+  roomId     String?  @map("room_id") @db.VarChar(16)
+  resolved   Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  reporter User? @relation("ReporterReports", fields: [reporterId], references: [id], onDelete: SetNull)
+  reported User  @relation("ReportedReports", fields: [reportedId], references: [id], onDelete: Cascade)
+
+  @@map("reports")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  tokenHash String   @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
