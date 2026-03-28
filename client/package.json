@@ -10,7 +10,6 @@
     "test": "vitest"
   },
   "dependencies": {
-    "@scribbly/shared": "*",
     "axios": "^1.6.5",
     "framer-motion": "^11.0.3",
     "react": "^18.2.0",
