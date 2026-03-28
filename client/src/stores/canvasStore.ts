@@ -10,13 +10,7 @@ interface Stroke {
   points: Point[];
   color: string;
   size: number;
-  tool: 'brush' | 'eraser';
-}
-
-interface FillAction {
-  x: number;
-  y: number;
-  color: string;
+  tool: 'brush' | 'eraser' | 'fill';
 }
 
 interface CanvasState {
@@ -61,7 +55,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         points: [point],
         color: selectedTool === 'eraser' ? '#FFFFFF' : selectedColor,
         size: selectedSize,
-        tool: selectedTool,
+        tool: selectedTool === 'fill' ? 'brush' : selectedTool,
       },
       isDrawing: true,
       redoStack: [], // Clear redo stack on new action
