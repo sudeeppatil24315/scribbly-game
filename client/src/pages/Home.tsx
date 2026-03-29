@@ -9,7 +9,7 @@ export default function Home() {
   const [roomCode, setRoomCode] = useState('');
   const [error, setError] = useState('');
 
-  const handleCreateRoom = () => {
+  const handleCreateRoom = async () => {
     if (!isAuthenticated && !username.trim()) {
       setError('Please enter a username');
       return;
@@ -19,8 +19,10 @@ export default function Home() {
       setGuestUsername(username.trim());
     }
 
-    // Navigate to room creation flow
-    navigate('/create-room');
+    // For now, generate a random room code and navigate to it
+    // In production, this should call the API to create a room
+    const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    navigate(`/room/${randomCode}`);
   };
 
   const handleJoinRoom = () => {
