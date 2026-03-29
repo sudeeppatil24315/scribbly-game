@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
+import socketClient from '../lib/socket';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -19,10 +20,20 @@ export default function Home() {
       setGuestUsername(username.trim());
     }
 
-    // For now, generate a random room code and navigate to it
-    // In production, this should call the API to create a room
-    const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    navigate(`/room/${randomCode}`);
+    // Connect socket and create room
+    const socket = socketClient.connect();
+    
+    // Listen for room created event
+    socket.once('room:created', (data: any) => {
+      navigate(`/room/${data.code}`);
+    });
+
+    socket.once('error', (error: any) => {
+      setError(error.message || 'Failed to create room');
+    });
+
+    // Emit create room event
+    socket.emit('room:create', {});
   };
 
   const handleJoinRoom = () => {

@@ -9,6 +9,32 @@ export function initializeSocketServer(httpServer: HTTPServer): SocketServer {
   const socketServer = new SocketServer(httpServer);
   const io = socketServer.getIO();
 
+  // Authentication middleware
+  io.use((socket, next) => {
+    const { token, guestUsername } = socket.handshake.auth;
+    
+    // For now, support guest users
+    if (guestUsername) {
+      socket.data.userId = `guest_${socket.id}`;
+      socket.data.username = guestUsername;
+      socket.data.isGuest = true;
+      return next();
+    }
+    
+    // TODO: Add JWT token validation for authenticated users
+    if (token) {
+      // Validate token and set user data
+      // For now, just allow connection
+      socket.data.userId = `user_${socket.id}`;
+      socket.data.username = 'User';
+      socket.data.isGuest = false;
+      return next();
+    }
+    
+    // No auth provided - reject
+    return next(new Error('Authentication required'));
+  });
+
   // Initialize handlers
   const roomHandler = new RoomHandler(socketServer);
   const drawingHandler = new DrawingHandler(socketServer);
@@ -19,8 +45,14 @@ export function initializeSocketServer(httpServer: HTTPServer): SocketServer {
     console.log(`Socket connected: ${socket.id}`);
 
     // Room events
-    socket.on('room:create', (data) => roomHandler.handleCreateRoom(socket, data));
-    socket.on('room:join', (data) => roomHandler.handleJoinRoom(socket, data));
+    socket.on('room:create', (data) => {
+      console.log('room:create event received:', data);
+      roomHandler.handleCreateRoom(socket, data);
+    });
+    socket.on('room:join', (data) => {
+      console.log('room:join event received:', data, 'socket.data:', socket.data);
+      roomHandler.handleJoinRoom(socket, data);
+    });
     socket.on('room:leave', (data) => roomHandler.handleLeaveRoom(socket, data));
     socket.on('room:kick', (data) => roomHandler.handleKickPlayer(socket, data));
     socket.on('room:vote-kick', (data) => roomHandler.handleVoteKick(socket, data));
